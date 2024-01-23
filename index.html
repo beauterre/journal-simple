@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Journal App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+        }
+        button {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Journal App</h1>
+
+<label for="entry">Add Entry:</label>
+<textarea id="entry" placeholder="Type your entry here..."></textarea>
+
+<button onclick="addEntry()">Add Entry</button>
+
+<h2>Journal Entries:</h2>
+<div id="entries"></div>
+
+<script>
+    function addEntry() {
+        const entryText = document.getElementById('entry').value;
+        if (!entryText.trim()) {
+            alert('Please enter a valid entry.');
+            return;
+        }
+
+        const timestamp = new Date().toISOString();
+        const entry = { timestamp, text: entryText };
+
+        // Send the entry to the server
+        fetch('https://www.makinggames.org/games/journal/journal.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(entry),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Entry added successfully, update the displayed entries
+                updateEntries();
+                
+                // Clear the textarea
+                document.getElementById('entry').value = '';
+            } else {
+                alert('Failed to add entry.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to add entry.');
+        });
+    }
+
+    function updateEntries() {
+        const entriesDiv = document.getElementById('entries');
+        entriesDiv.innerHTML = '';
+
+        // Fetch entries from the server
+        fetch('journal.php')
+        .then(response => response.json())
+        .then(entries => {
+            // Display entries in descending order
+            entries.forEach(entry => {
+                const entryDiv = document.createElement('div');
+                entryDiv.innerHTML = `<strong>${new Date(entry.timestamp).toLocaleString()}</strong><br>${entry.text}<hr>`;
+                entriesDiv.appendChild(entryDiv);
+            });
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to fetch entries.');
+        });
+    }
+
+    // Initial update when the page loads
+    updateEntries();
+</script>
+
+</body>
+</html>
