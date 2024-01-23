@@ -19,77 +19,259 @@
     </style>
 </head>
 <body>
-
 <h1>Journal App</h1>
+<section id="fase1">
+    <h2>Wat is je naam?</h2>
+    <input id="usernameInput"/>
+    <button onclick="setUserName()">Invoeren</button>
+</section>
+<section id="fase2">
+    <label id="label-for-entry" for="entry"></label>
+    <textarea id="entry" placeholder="Type your entry here..."></textarea>
 
-<label for="entry">Add Entry:</label>
-<textarea id="entry" placeholder="Type your entry here..."></textarea>
+    <button onclick="prevDay()">&larr;</button>
+	<span id="current-date"></span>
+    <button onclick="nextDay()">&rarr;</button>
+	<hr>
+	<div style="position: relative; width: 100%;">
+		<button onclick="addEntry()">Toevoegen</button>
+		<button style="position: absolute; right: 0px;" onclick="copyJournal()">Kopieer alles</button>
+	</div>
 
-<button onclick="addEntry()">Add Entry</button>
-
-<h2>Journal Entries:</h2>
-<div id="entries"></div>
+    <h2>Journal Entries:</h2>
+    <div id="entries"></div>
+</section>
 
 <script>
-    function addEntry() {
-        const entryText = document.getElementById('entry').value;
-        if (!entryText.trim()) {
-            alert('Please enter a valid entry.');
-            return;
+
+let currentDate = new Date();
+let entries=[];
+// simplest user management ever..
+//const storedUserName = localStorage.getItem('userName');
+// Get username from the hash
+const hashUsername = window.location.hash.substring(1); // Remove the '#' character
+const userNameInput = document.getElementById('usernameInput');
+let userName;
+
+if (hashUsername) {
+    // Use the username from the hash if it exists
+    userName = hashUsername;
+	// go on to fase 2
+	showSection("fase2");
+
+} else {
+    // If no username in the hash, show the fase1 section
+    showSection("fase1");
+
+    // Check if the input field has a value
+    userName = userNameInput.value.trim();
+
+    if (!userName) {
+        // If input field is empty, you can handle it according to your needs
+        // For example, you can choose to do nothing or show an error message
+        console.log("No username entered or stored.");
+    }
+}
+document.getElementById('usernameInput').value = userName;
+
+
+
+
+function setUserName()
+{
+	const userNameInput = document.getElementById('usernameInput');
+
+	const userName = storedUserName || (userNameInput.value.trim() !== '' ? userNameInput.value.trim() : prompt('Enter your user name:'));
+	localStorage.setItem('userName', userName);
+	document.getElementById('usernameInput').value = userName;
+	showSection("fase2"); 
+} 
+
+
+
+	function showSection(id) 
+	{
+	if(id=="fase2") // Now you can update the label
+		updateLabel();
+		
+		
+    let sections = document.getElementsByTagName("section");
+    for (let i = 0; i < sections.length; i++) {
+        if (sections[i].id == id) {
+            sections[i].style.display = "block";
+        } else {
+            sections[i].style.display = "none";
         }
+    }
+}
+ 
+    function prevDay() {
+        // Calculate the previous day
+        currentDate.setDate(currentDate.getDate() - 1);
 
-        const timestamp = new Date().toISOString();
-        const entry = { timestamp, text: entryText };
+        // Update the label with the new date
+        updateLabel(currentDate);
+    }
 
-        // Send the entry to the server
-        fetch('https://www.makinggames.org/games/journal/journal.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(entry),
+    function nextDay() {
+        // Calculate the next day
+        currentDate.setDate(currentDate.getDate() + 1);
+
+        // Update the label with the new date
+        updateLabel(currentDate);
+    }
+
+    function updateLabel(date) {
+        const dagen = ["zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag"];
+        document.getElementById("label-for-entry").innerHTML = userName;
+        document.getElementById("current-date").innerHTML = currentDate.getFullYear() + "-" + (currentDate.getMonth() + 1)
+		+ "-" + currentDate.getDate() + " " + (dagen[currentDate.getDay()]);
+        updateEntries();
+    }
+
+function addEntry() {
+    const entryText = document.getElementById('entry').value;
+    if (!entryText.trim()) {
+        alert('Please enter a valid entry.');
+        return;
+    }
+
+    // Send the entry to the server
+	let url="https://www.makinggames.org/games/journal/journal.php?user="+userName;
+	console.log("add entry for user:"+ url);
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ timestamp: new Date().toISOString(), text: entryText }), // Ensure data is JSON-formatted
+    })
+        .then(response => {
+            // Check if response status is OK (200)
+            if (!response.ok) {
+                throw new Error(`Failed to add entry. Status: ${response.status}`);
+            }
+            return response.json(); // Parse the JSON in the response
         })
-        .then(response => response.json())
         .then(data => {
             if (data.success) {
                 // Entry added successfully, update the displayed entries
                 updateEntries();
-                
+
                 // Clear the textarea
                 document.getElementById('entry').value = '';
             } else {
-                alert('Failed to add entry.');
+                console.error(JSON.stringify(data)); // Log the response data
+                alert(`Failed to add entry: ${data.error}`);
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('Failed to add entry.');
+            alert('Failed to add entry. No response from server.');
         });
-    }
+		
+	updateEntries();// show your work..
+}
 
-    function updateEntries() {
-        const entriesDiv = document.getElementById('entries');
-        entriesDiv.innerHTML = '';
+// this copies the entries from the server to entries here in Javascript.
+function updateEntries() {
+    // show Loading..
+    const entriesDiv = document.getElementById('entries');
+    entriesDiv.innerHTML = 'Fetching entries from the server...';
 
-        // Fetch entries from the server
-        fetch('journal.php')
+    // Fetch entries from the server
+    let formattedDate = currentDate.toISOString().split('T')[0];
+    let url = "https://www.makinggames.org/games/journal/journal.php?user=" + userName + "&date=" + formattedDate;
+    console.log("fetch entries from:" + url);
+    fetch(url)
         .then(response => response.json())
-        .then(entries => {
-            // Display entries in descending order
-            entries.forEach(entry => {
-                const entryDiv = document.createElement('div');
-                entryDiv.innerHTML = `<strong>${new Date(entry.timestamp).toLocaleString()}</strong><br>${entry.text}<hr>`;
-                entriesDiv.appendChild(entryDiv);
-            });
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Failed to fetch entries.');
+        .then(responseObject => {
+
+            if (responseObject.success != true) {
+                console.log('something went wrong:', JSON.stringify(responseObject));
+            } else {
+                console.log('Fetched entries:', JSON.stringify(responseObject));
+                entries = responseObject.data.entries;
+                // Reverse entries to display the latest on top
+                entries.reverse();
+
+                console.log("seem to have gotten " + entries.length + " entries");
+                entriesDiv.innerHTML = "Loaded " + entries.length + " entries";
+            }
+            showEntries();
         });
+}
+function showEntries() {
+    const entriesDiv = document.getElementById('entries'); // Add this line
+    if (entries.length === 0) {
+        entriesDiv.innerHTML = 'No entries available.';
+        return;
     }
 
-    // Initial update when the page loads
-    updateEntries();
+    // Display entries
+    entries.forEach(entry => {
+        const entryDiv = document.createElement('div');
+        const entryDate = new Date(entry.timestamp * 1000);
+        const formattedTimestamp = entryDate.toLocaleString(undefined, {
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric'
+        });
+
+        entryDiv.innerHTML = "<strong>" + formattedTimestamp + "</strong><br>" + entry.text + "<hr>";
+        entriesDiv.appendChild(entryDiv);
+    });
+}
+
+
+function copyJournal() {
+    // Check if there are entries to copy
+    if (entries.length === 0) {
+        alert('No entries available to copy.');
+        return;
+    }
+
+    // Sort entries with the latest on top
+    const sortedEntries = entries.sort((a, b) => b.timestamp - a.timestamp);
+
+    // Create a hidden textarea
+    const hiddenTextarea = document.createElement('textarea');
+    hiddenTextarea.style.height = '0';
+    document.body.appendChild(hiddenTextarea);
+
+    // Set the value of the textarea to sorted entries
+    hiddenTextarea.value = sortedEntries.map(entry => {
+        const entryDate = new Date(entry.timestamp * 1000);
+		const formattedTimestamp = entryDate.toLocaleString(undefined, {
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric'
+        });
+
+        return `${formattedTimestamp}\n${entry.text}\n`;
+    }).join('\n');
+
+    // Select the text in the textarea
+    hiddenTextarea.select();
+    hiddenTextarea.setSelectionRange(0, 99999); /* For mobile devices */
+
+    // Copy the text to the clipboard
+    document.execCommand('copy');
+
+    // Remove the hidden textarea
+    document.body.removeChild(hiddenTextarea);
+
+    // Notify the user
+    alert('Entries copied to clipboard.');
+}
+
+
+// update the label..
+updateLabel();
 </script>
 
 </body>
