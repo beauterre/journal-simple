@@ -1,5 +1,0 @@
-2024-01-23T10:53:46.745Z|test
-2024-01-23T10:53:55.377Z|right, seems to work now..
-2024-01-23T10:55:25.824Z|test again..
-2024-01-23T11:00:22.865Z|test
-2024-01-23T11:01:14.851Z|Ok, lets have lunch
